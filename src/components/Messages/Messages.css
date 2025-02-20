@@ -1,0 +1,146 @@
+.messages-box {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  max-height: 76vh; /* Adjust according to your design */
+}
+.MuiOutlinedInput-root {
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+.css-12ineo8-MuiButtonBase-root-MuiButton-root {
+  border-top-left-radius: 0px !important; /* ביטול הפינה השמאלית העליונה */
+  border-bottom-left-radius: 0px !important; /* ביטול הפינה השמאלית התחתונה */
+  height: 2.759em !important;
+  box-shadow: none !important;
+}
+
+
+.messages-box::-webkit-scrollbar {
+  width: 6px;
+}
+
+.messages-box::-webkit-scrollbar-thumb {
+  background-color: #888;
+  border-radius: 3px;
+}
+
+.messages-box::-webkit-scrollbar-thumb:hover {
+  background-color: #555;
+}
+
+.messages-box::-webkit-scrollbar-track {
+  background-color: #f1f1f1;
+}
+.messages-container {
+  display: flex
+  ;
+      height: 89vh;
+     
+      border-radius: 4px;
+}
+
+.clients-list {
+  width: 25%;
+  border-right: 1px solid #ddd;
+  padding: 16px;
+  max-height: 86vh;
+  border-bottom-left-radius: 4px;
+  overflow: auto;
+}
+
+
+.clients-title {
+  font-weight: bold;
+  margin-bottom: 16px;
+}
+.css-zsp0bh-MuiInputBase-root-MuiOutlinedInput-root {
+  padding: 8.2px 4px !important;
+}
+.client-item {
+  cursor: pointer;
+  padding: 8px;
+  transition: background 0.3s;
+}
+
+.client-item.selected {
+  background-color: #e0e0e0;
+}
+
+.bold-text {
+  font-weight: bold;
+}
+
+.chat-section {
+  width: 75%;
+  display: flex;
+  flex-direction: column;
+}
+
+.messages-box {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.message {
+  margin-bottom: 15px;
+  padding: 8px;
+  border-radius: 8px;
+}
+
+.message.out {
+  background-color: #cce5ff;
+  align-self: flex-end;
+}
+
+.message.in {
+  background-color: #f1f1f1;
+  align-self: flex-start;
+}
+
+.message-content {
+  font-size: 14px;
+}
+
+.timestamp {
+  font-size: 12px;
+  color: gray;
+}
+
+.message-input-container {
+  display: flex;
+  padding: 16px 8px 9px 8px ;
+  border-top: 1px solid #ddd;
+  border: none;
+  position: relative;
+  align-items: center;
+}
+
+.message-input-container input {
+  flex: 1;
+  padding: 8px;
+}
+
+.file-link a {
+  color: blue;
+  text-decoration: underline;
+}
+.css-1w577du-MuiInputBase-root-MuiOutlinedInput-root {
+  padding: 9px 14px !important;
+  display: list-item !important;
+  border-radius: 24px !important;
+  overflow-x: hidden;
+}
+.css-12nev0n-MuiInputBase-input-MuiOutlinedInput-input{
+  margin-right: 1vw !important;
+width: 40vw !important;
+}
+.css-zsp0bh-MuiInputBase-root-MuiOutlinedInput-root{
+border-radius: 5vh !important;}
+.css-w4nesw-MuiInputBase-input-MuiOutlinedInput-input{
+  width: 40vw;
+  margin-right: 1vw !important;
+}

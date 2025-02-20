@@ -1,0 +1,28 @@
+.main-container {
+    height: 100vh;
+    background-image: url("../../public/Images/blue_details.jpg");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    display: flex;
+    justify-content: center; /* ממקם את התיבה במרכז הדף */
+    align-items: center; /* ממקם את התיבה במרכז הדף אנכית */
+    justify-content: flex-start;
+        padding-inline-start: 10vw;
+        direction: ltr;
+    overflow: hidden; /* מונע גלילה לא רצויה */
+    overflow-y: hidden;
+
+}
+.main-messages-box {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    min-height: 90vh;
+    max-height: 90vh; /* Adjust according to your design */
+    background-color: rgba(255, 255, 255, 0.9);
+  }
+  .main-page-container{
+    margin-top: 3vh;
+  }

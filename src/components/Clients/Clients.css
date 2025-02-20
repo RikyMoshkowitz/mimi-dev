@@ -1,0 +1,20 @@
+.error {
+    color: red;
+    font-weight: bold;
+    margin: 10px 0;
+  }
+  
+  ul {
+    list-style-type: none;
+    padding: 0;
+  }
+  
+  li {
+    padding: 5px 0;
+    border-bottom: 1px solid #ddd;
+  }
+  
+  li strong {
+    color: #333;
+  }
+  

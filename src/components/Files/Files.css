@@ -1,0 +1,33 @@
+.files-box {
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  gap: 8px;
+}
+
+.files-box .MuiBox-root {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px;
+  border-radius: 4px;
+  background-color: #f0f0f0;
+}
+
+.files-box .MuiTypography-root {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.files-box .MuiIconButton-root {
+  padding: 4px;
+}
+
+.MuiBadge-dot {
+  background-color: red;
+}
+
+.MuiBadge-dot.invisible {
+  visibility: hidden;
+}

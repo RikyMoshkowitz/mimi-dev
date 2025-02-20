@@ -1,0 +1,98 @@
+
+.login-container {
+    box-sizing: border-box;
+    height: 100vh;
+    max-height: 100vh;
+    width: 100vw;
+    max-width: 100vw
+    ;
+    background-image: url("../../public/Images/background_image.jpg");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    display: flex;
+    justify-content: center; /* ממקם את התיבה במרכז הדף */
+    align-items: center; /* ממקם את התיבה במרכז הדף אנכית */
+    justify-content: flex-start;
+        padding-inline-start: 10vw;
+        direction: rtl;
+    overflow: hidden; /* מונע גלילה לא רצויה */
+    overflow-y: hidden;
+
+}
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden; /* מונע גלילה מיותרת */
+}
+
+.login-box {
+    width: 100%;
+    max-width: 400px;
+    border-radius: 4px; /* מעגל את הפינות */
+    padding: 15vh 5vh 10vh;
+    height: auto;
+    background-color: #fff;
+    box-shadow: 0 14px 28px rgba(0,0,0,0.25),0 10px 10px rgba(0,0,0,0.22);
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* ממקם את האלמנטים במרכז התיבה */
+    direction: ltr;
+    animation: slideInRight 1s ease-out;
+    position: relative;
+
+}
+
+.login-form{
+width: 100%;}
+/* עיצוב שדות הקלט */
+.login-box input {
+    width: 100%;
+    padding: 10px 0px;
+    margin-top: 8px;
+    border: none;
+    border-bottom: 1px solid #ccc;
+}
+.login-box input:focus{
+    outline: none ;
+    border: none;
+border-bottom: 1px solid #4287c0 !important;
+    }
+.form-field{
+    padding-bottom: 24px;
+}
+
+/* עיצוב הכפתור */
+.login-box button {
+    display: inline-flex
+    ;
+        align-items: center;
+        justify-content: center;
+        transition: all .2s ease-in-out;
+        border-radius: 50px;
+        color: #fff;
+        background-color: #2d6a9c;
+        border: 1px solid #2d6a9c;
+        padding: 10px 15px;
+        font-size: 19px;
+        width: 100%;
+        font-family: inherit;
+        margin-top: 8vh;
+}
+
+.login-box button:hover {
+    background-color: #2d6a9c;
+}
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
