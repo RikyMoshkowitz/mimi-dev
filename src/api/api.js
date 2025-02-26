@@ -89,6 +89,15 @@ export const sendFileMessage = async (formData) => {
   return response.data;
 };
 
+export const addFile = async (formData) => {
+  const response = await apiClient.post("/messages/addFile", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+  return response.data;
+};
+
 export const createClient = async (clientData) => {
   const response = await apiClient.post("/clients", clientData);
   return response.data;
@@ -111,14 +120,21 @@ export const createMessage = async () => {
 
 
 export const uploadFile = async () => {
-  const response = await apiClient.post("/messagewws");
+  const response = await apiClient.post("/messages");
   return response.data;
 };
 
-export const deleteFile = async () => {
-  const response = await apiClient.post("/messagewws");
-  return response.data;
+export const deleteFile = async (fileId) => {
+  try {
+    const response = await apiClient.delete(`/files/${fileId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error deleting file:", error);
+    throw error;
+  }
 };
+
+
 
 // Fetch all clients
 export const fetchClients = async () => {
@@ -182,30 +198,36 @@ export const deleteTask = async (taskId) => {
 
 export const getFilesByClient = async (clientId) => {
   // Mock data
-  const mockFiles = [
-    {
-      file_id: "1",
-      file_name: "Invoice_001.pdf",
-      file_url: "/files/invoice_001.pdf",
-      status: "new", // or "seen"
-    },
-    {
-      file_id: "2",
-      file_name: "Report_2024.docx",
-      file_url: "/files/report_2024.docx",
-      status: "new",
-    },
-    {
-      file_id: "3",
-      file_name: "Meeting_Agenda.pdf",
-      file_url: "/files/meeting_agenda.pdf",
-      status: "seen",
-    },
-  ];
+  const response= await apiClient.get(`files/${clientId}`)
 
-  // Filter files by clientId
+  return response.data;
+};
+export const handleDownloadFiles = async (fileId, fileName) => {
+  try {
+    const response = await apiClient.get(`files/download/${fileId}`, {
+      responseType: "blob", // חובה! הופך את התגובה לקובץ BLOB
+    });
 
-  return mockFiles;
+    // בדיקה נכונה לסטטוס התשובה
+    if (response.status !== 200) {
+      throw new Error("Failed to download file");
+    }
+
+    const blob = new Blob([response.data], { type: response.headers["content-type"] });
+    const blobUrl = window.URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.setAttribute("download", fileName || "downloaded_file"); // אם חסר שם, ברירת מחדל
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // שחרור הכתובת מהזיכרון
+    window.URL.revokeObjectURL(blobUrl);
+  } catch (error) {
+    console.error("Error downloading file:", error);
+  }
 };
 
 export const updateMessage = async (messageId, newContent) => {
@@ -221,6 +243,16 @@ export const updateMessage = async (messageId, newContent) => {
   } catch (error) {
     console.error("Error updating message:", error);
     throw error;
+  }
+};
+
+export const getMessagesByEmployeeAndClient = async (employeeId, clientId) => {
+  try {
+    const response = await apiClient.get(`/messages/employee/${employeeId}/client/${clientId}`);
+    return await response.data;
+  } catch (error) {
+    console.error("Error fetching messages:", error);
+    return [];
   }
 };
 

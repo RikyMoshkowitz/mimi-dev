@@ -25,7 +25,7 @@ import SendIcon from "@mui/icons-material/Send";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AttachFileIcon from "@mui/icons-material/AttachFile"; // Import AttachFileIcon
-import { getClientsByEmployee, getFilesByClient, uploadFile, sendFileMessage, deleteFile } from "../../api/api";
+import { getClientsByEmployee, getFilesByClient, uploadFile, sendFileMessage, deleteFile, handleDownloadFiles, addFile } from "../../api/api";
 import "./Files.css"; // Ensure the CSS file is correctly linked
 
 const Files = () => {
@@ -95,20 +95,23 @@ const Files = () => {
   };
 
   // Upload a new file
-  const handleFileUpload = async () => {
+  const handleFileUpload = async (file) => {
     if (!selectedClient) {
       console.error("No client selected.");
       return;
     }
 
     try {
-      if (selectedFile) {
+      if (file) {
         const formData = new FormData();
+
         formData.append("client_id", selectedClient.client_id);
         formData.append("employee_id", employeeId);
-        formData.append("file", selectedFile);
+        formData.append("direction", "out");
+        formData.append("status", "sent");
+        formData.append("file", file);
 
-        const response = await uploadFile(formData);
+        const response = await addFile(formData);
         setFiles([...files, response]); // Add the new file to the list
         setSelectedFile(null); // Clear the file selection
       }
@@ -118,13 +121,8 @@ const Files = () => {
   };
 
   // Download a file
-  const handleDownloadFile = (fileUrl, fileName) => {
-    const link = document.createElement("a");
-    link.href = fileUrl;
-    link.setAttribute("download", fileName);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleDownloadFile = (fileId, fileName) => {
+    handleDownloadFiles(fileId, fileName)
   };
 
   // Send a file message
@@ -269,8 +267,13 @@ const Files = () => {
           <input
             type="file"
             id="fileInput"
-            onChange={handleFileUpload}
-            style={{ display: "none" }}
+            onChange={(event) => {
+              const file = event.target.files[0]; // קבלת הקובץ שנבחר
+              if (file) {
+                setSelectedFile(file); // שמירת הקובץ בסטייט
+                handleFileUpload(file); // קריאה לפונקציה להעלאת הקובץ
+              }
+            }}            style={{ display: "none" }}
           />
           <Button
             sx={{backgroundColor: "#2d6a9c" , position: "absolute" , bottom: "4vh" , right: "30vw", zIndex:"1000"}}
@@ -286,13 +289,13 @@ const Files = () => {
         <List sx={{ flex: 1, overflowY: "auto" }}>
           {files.map((file) => (
             <ListItem key={file.file_id} sx={{ display: "flex", justifyContent: "space-between" }}>
-              <ListItemText primary={file.file_name} secondary={`Uploaded on: ${new Date(file.upload_date).toLocaleString()}`} />
+              <ListItemText primary={file.file_name} secondary={`Uploaded on: ${new Date(file.uploaded_at).toLocaleString()}`} />
 
               <Box>
                 <IconButton
                   size="small"
                   color="primary"
-                  onClick={() => handleDownloadFile(file.file_url, file.file_name)}
+                  onClick={() => handleDownloadFile(file.file_id, file.file_name)}
                 >
                   <DownloadIcon />
                 </IconButton>
@@ -327,12 +330,19 @@ const Files = () => {
       <Modal open={viewFile !== null} onClose={handleClosePreview}>
         <Box sx={{ padding: "20px", backgroundColor: "#fff", margin: "10% auto", maxWidth: "500px", borderRadius: "8px", boxShadow: 3 }}>
           {viewFile && (
+     
+            
             <>
+                 
               <Typography variant="h6" sx={{ marginBottom: "10px" }}>
                 {viewFile.file_name}
+
               </Typography>
-              <iframe src={viewFile.file_url} width="100%" height="400px" />
+          
+          
+              <iframe src={`http://localhost:8000/thumbnails/${(viewFile.file_name)}.png`} width="100%" height="400px" />
             </>
+
           )}
         </Box>
       </Modal>

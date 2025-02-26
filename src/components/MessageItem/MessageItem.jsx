@@ -17,6 +17,46 @@ import {
     IconButton,
 } from "@mui/material";
 
+import { BsFillFileWordFill, BsFillFilePdfFill, BsFillFileExcelFill } from "react-icons/bs";
+import { FaFileImage, FaFileAlt, FaFileVideo } from "react-icons/fa";
+import { PiMicrosoftPowerpointLogoFill } from "react-icons/pi";
+import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
+import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
+import InsertPhotoIcon from "@mui/icons-material/InsertPhoto";
+import InsertChartIcon from "@mui/icons-material/InsertChart";
+import DescriptionIcon from "@mui/icons-material/Description";
+import DownloadIcon from "@mui/icons-material/Download"; 
+import { AiFillFileWord } from "react-icons/ai";
+const getFileIcon = (fileName) => {
+    if (!fileName) return <FaFileAlt size={24} color="gray" />; // ברירת מחדל - אייקון קובץ כללי
+    const ext = fileName.split(".").pop().toLowerCase();
+  
+    switch (ext) {
+        case "doc":
+            case "docx":
+              return <AiFillFileWord style={{ width: "90px", height: "24px", color: "blue" }} />;
+            
+      case "pdf":
+        return <BsFillFilePdfFill size={24} color="red" />;
+      case "xlsx":
+      case "xls":
+         return <BsFillFileExcelFill size={24} color="green" />;      case "xlsx":
+      case "pptx":
+        return <PiMicrosoftPowerpointLogoFill size={24} color="#D24726" />;
+        case "jpg":
+      case "jpeg":
+      case "png":
+      case "gif":
+        return <FaFileImage size={24} color="purple" />;
+      case "mp4":
+      case "avi":
+      case "mov":
+        return <FaFileVideo size={24} color="darkblue" />;
+      default:
+        return <FaFileAlt size={24} color="gray" />;
+    }
+  };
+
 const MessageItem = ({ msg, onEdit, onDelete, onSaveEdit, onCancelEdit,onReply, isEditing, editedMessage, setEditedMessage, messages }) => {
     const [anchorEl, setAnchorEl] = useState(null);
     const [hover, setHover] = useState(false);
@@ -26,7 +66,9 @@ const MessageItem = ({ msg, onEdit, onDelete, onSaveEdit, onCancelEdit,onReply, 
     const handleMenuOpen = (event) => setAnchorEl(event.currentTarget);
     const handleMenuClose = () => setAnchorEl(null);
     useEffect(() => {
+
         const findParentMessageContent = async () => {
+
             if (msg.parent_message_id) {
                 const parentMessage = messages.find(ms => ms.message_id === msg.parent_message_id);
                 if (parentMessage) {
@@ -66,28 +108,19 @@ const MessageItem = ({ msg, onEdit, onDelete, onSaveEdit, onCancelEdit,onReply, 
             sx={{ position: "relative", display: "flex", alignItems: "left", flexDirection: "column", maxWidth: "44vw",    borderRadius: msg.parent_message_id ? "16px" : "8px", // שינוי דינמי של ה-border-radius
             }}
         >
-        {msg.message_type=="FILE" && (
-        <Box>
-          <Typography
-            sx={{ color: "blue", textDecoration: "underline", cursor: "pointer" }}
-            onClick={() => handleFileDownload(msg.content, msg.file_url)}
-          >
-            {msg.content} {/* הצגת שם הקובץ */}
-          </Typography>
-        </Box>
-      )}
+
                   {msg.parent_message_id && (
         <Box sx={{ padding: "10px", backgroundColor: "#fff", borderTopRightRadius: "16px", borderTopLeftRadius:"16px", width:"auto",marginRight:"-0.2vw", marginLeft:"-0.4vw",marginTop:"-1vh", border:"1px solid lightBlue", borderBottom:"none", display:"flex", flexDirection:"row-reverse" ,wordWrap: "break-word",
             whiteSpace: "normal"}}>
           <Box sx={{minWidth: "16px !important", width: "16px !important", height: "100%", borderTopRightRadius: "16px !important" , borderRight: "3px solid #2d6a9c !important", borderTop: "3px solid #2d6a9c !important", padding:"9px 0", marginTop:"-1.3vh", marginRight:"-0.8vw"}}>  </Box>
           <Typography variant="body2" sx={{ color: "#333", fontStyle: "italic", direction: "rtl", display:"flex", flexDirection:"column"}}>{senderName}</Typography>
-          <Typography sx={{ color: "#333", marginBottom: "8px", direction: "rtl", display:"flex", flexDirection:"column-reverse", marginTop:"3vh", marginRight:"-2.5vw", marginBottom:"0" }}>{parentMessage.content}</Typography>
+          <Typography sx={{ color: "#333", marginBottom: "8px", direction: "rtl", display:"flex", flexDirection:"column-reverse", marginTop:"3vh", marginRight:"-1vw", marginBottom:"0" }}>{parentMessage.content}</Typography>
           
         </Box>
       )}
 
             
-            {isEditing ? (
+            {isEditing && (
                 <Box className="message-edit-box">
                     <TextField
                         fullWidth
@@ -114,11 +147,7 @@ const MessageItem = ({ msg, onEdit, onDelete, onSaveEdit, onCancelEdit,onReply, 
                         <CloseIcon />
                     </IconButton>
                 </Box>
-            ) : (
-                <>          <Typography className="message-content" sx={{ marginBottom: 1, textAlign: msg.direction === "out" ? "right" : "left", maxWidth: "50vw", wordWrap: "break-word", whiteSpace: "pre-wrap",marginTop:"1vh" }}>{msg.content}</Typography> {/* מוסיפה רווח מתחת לתוכן */}
-                    <Typography variant="caption" className="timestamp" sx={{ color: "gray", textAlign: msg.direction === "out" ? "right" : "left" }}>{msg.timestamp}</Typography> {/* ניתן לשנות צבע של הזמן */}
-                </>
-            )}
+            ) }
 
             {/* כפתור 3 נקודות - מופיע רק כשעומדים על ההודעה */}
             {hover && (
@@ -170,6 +199,78 @@ const MessageItem = ({ msg, onEdit, onDelete, onSaveEdit, onCancelEdit,onReply, 
                 </MenuItem>
 
             </Menu>
+            {msg.message_type === "FILE" ? (
+  <Box
+    sx={{
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      border: "10px solid #a6a0a0", // מסגרת אפורה כהה
+      borderRadius: "8px",
+      width: "13vw",
+      height: "17vh",
+      position: "relative",
+      backgroundColor: "#f9f9f9",
+      overflow: "hidden",
+    }}
+  >
+    {/* כפתור ההורדה - ממורכז באמצע התיבה */}
+    <IconButton
+      onClick={() => handleFileDownload(msg.content, msg.file_url)}
+      sx={{
+        position: "absolute",
+        top: "33%",
+        left: "50%",
+        transform: "translate(-50%, -50%)",
+        backgroundColor: "rgba(0, 0, 0, 0.6)",
+        color: "white",
+        width: "50px",
+        height: "50px",
+        borderRadius: "50%",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        transition: "0.3s",
+        "&:hover": { backgroundColor: "rgba(0, 0, 0, 0.8)" },
+      }}
+    >
+      <DownloadIcon fontSize="large" />
+    </IconButton>
+
+    {/* מסגרת תחתונה עבה יותר */}
+    <Box
+      sx={{
+        position: "absolute",
+        bottom: "0",
+        width: "100%",
+        backgroundColor: "#a6a0a0", // רקע כהה למסגרת התחתונה
+        color: "white",
+        padding: "10px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: "14px",
+        fontWeight: "bold",
+        gap: "0.75vw"
+      }}
+    >
+      <Typography sx={{ marginLeft: "8px", fontSize: "12px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        {msg.content}
+      </Typography>
+
+      {getFileIcon(msg.content)} {/* אייקון מותאם לקובץ */}
+
+    </Box>
+  </Box>
+) : (
+
+    
+        <>          <Typography className="message-content" sx={{ marginBottom: 1, textAlign: msg.direction === "out" ? "right" : "left", maxWidth: "50vw", wordWrap: "break-word", whiteSpace: "pre-wrap",marginTop:"1vh" }}>{msg.content}</Typography> {/* מוסיפה רווח מתחת לתוכן */}
+            <Typography variant="caption" className="timestamp" sx={{ color: "gray", textAlign: msg.direction === "out" ? "right" : "left" }}>{msg.timestamp}</Typography> {/* ניתן לשנות צבע של הזמן */}
+        </>
+    
+)}
         </Box>
     );
 };

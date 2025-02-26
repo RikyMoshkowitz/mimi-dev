@@ -25,6 +25,7 @@ import {
   sendFileMessage,
   updateMessage,
   fetchSenderName,
+  getMessagesByEmployeeAndClient,
 } from "../../api/api";
 import "./Messages.css";
 import MessageItem from "../MessageItem/MessageItem";
@@ -46,40 +47,49 @@ const Messages = () => {
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editedMessage, setEditedMessage] = useState("");
   const [messageContent, setMessageContent] = useState("");
-  const [messageSender, setMessageSender] = useState("");  
-  const [replyToMessageId, setReplyToMessageId] = useState("");  
+  const [messageSender, setMessageSender] = useState("");
+  const [replyToMessageId, setReplyToMessageId] = useState("");
   const messagesEndRef = useRef(null); // יצירת ref לאלמנט ההודעות
   const [filePreview, setFilePreview] = useState(null); // משתנה לאחסון התצוגה המקדימה
+  const [lastCheckedMessageId, setLastCheckedMessageId] = useState(
+    Number(localStorage.getItem("lastCheckedMessageId")) || 206
+  );
+  const [lastSoundMessageId, setLastSoundMessageId] = useState(
+    Number(localStorage.getItem("lastSoundMessageId")) || null
+  );
+
+  const playedSounds = useRef(new Set()); // זיכרון של ההודעות שכבר השמיעו צליל
+  const selectedClientRef = useRef(null);
 
   const employeeId = localStorage.getItem("employee_id");
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
     setSelectedFile(file);
-  
+
     if (file) {
-        const formData = new FormData();
-        formData.append("file", file);
-        console.log("📤 נשלח קובץ:", file.name);
+      const formData = new FormData();
+      formData.append("file", file);
+      console.log("📤 נשלח קובץ:", file.name);
 
-        try {
-            const response = await fetch("http://localhost:8000/messages/file-thumbnail", {
-                method: "POST",
-                body: formData,
-            });
+      try {
+        const response = await fetch("http://localhost:8000/messages/file-thumbnail", {
+          method: "POST",
+          body: formData,
+        });
 
-            if (response.ok) {
-                const data = await response.json(); // קבלת JSON ולא blob
-                console.log("✅ URL של תמונה ממוזערת:", data.thumbnail_url);
-                setFilePreview(data.thumbnail_url); // שמירת ה-URL
-            } else {
-                const errorText = await response.text();
-                console.error("🚨 שגיאה ביצירת תמונה ממוזערת:", errorText);
-            }
-        } catch (error) {
-            console.error("🚨 שגיאה בשליחת קובץ:", error);
+        if (response.ok) {
+          const data = await response.json(); // קבלת JSON ולא blob
+          console.log("✅ URL של תמונה ממוזערת:", data.thumbnail_url);
+          setFilePreview(data.thumbnail_url); // שמירת ה-URL
+        } else {
+          const errorText = await response.text();
+          console.error("🚨 שגיאה ביצירת תמונה ממוזערת:", errorText);
         }
+      } catch (error) {
+        console.error("🚨 שגיאה בשליחת קובץ:", error);
+      }
     }
-};
+  };
 
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
@@ -142,53 +152,109 @@ const Messages = () => {
       }
     };
     fetchClients();
-  }, [employeeId, selectedClient]);
+  }, [employeeId]);
+
 
   const handleClientClick = async (client) => {
     setSelectedClient(client);
-    try {
-      const data = await getMessagesByEmployee(employeeId);
-      const normalizedMessages = Array.isArray(data) ? data : [data];
-      const clientMessages = normalizedMessages.filter(
-        (msg) => msg.client_id === client.client_id
-      );
+    selectedClientRef.current = client;
 
-      setMessages(clientMessages);
-      setNewMessages((prevState) => ({
-        ...prevState,
-        [client.client_id]: false,
-      }));
+    setNewMessages((prevState) => {
+      const updatedNewMessages = { ...prevState };
+      updatedNewMessages[client.client_id] = false; // מסיר את החיווי רק מהלקוח שנבחר
+      return updatedNewMessages;
+    });
+
+    try {
+      const data = await getMessagesByEmployeeAndClient(employeeId, client.client_id);
+      if (!data || !Array.isArray(data)) return;
+
+      setMessages(data); // שומר רק את ההודעות של הלקוח הנוכחי
     } catch (error) {
       console.error("Error fetching messages:", error);
       setMessages([]);
     }
   };
 
+
+  const playNotificationSound = () => {
+    const audio = new Audio("/Notifications/anydo_pop.mp3");
+
+    audio.play().catch(error => {
+      if (error.name === "NotAllowedError") {
+        console.warn("🔇 הדפדפן חסם את השמעת הצליל. הצליל יופעל רק לאחר אינטראקציה עם הדף.");
+      } else {
+        console.error("❌ שגיאה בהשמעת הצליל:", error);
+      }
+    });
+  };
+  const seenMessages = useRef(new Set());
+
   useEffect(() => {
     const checkNewMessages = async () => {
       try {
         const data = await getMessagesByEmployee(employeeId);
         const normalizedMessages = Array.isArray(data) ? data : [data];
-        const newMessagesStatus = {};
 
-        clients.forEach((client) => {
-          const hasNew = normalizedMessages.some(
-            (msg) => msg.client_id === client.client_id && msg.status === "new"
-          );
-          newMessagesStatus[client.client_id] = hasNew;
+        let receivedNewMessage = false;
+        let latestMessageId = lastCheckedMessageId;
+
+        setNewMessages((prevNewMessages) => {
+          let updatedNewMessages = { ...prevNewMessages };
+
+          normalizedMessages.forEach((msg) => {
+            if (msg.status === "received") {
+              if (!lastCheckedMessageId || msg.message_id > lastCheckedMessageId) {
+                if (!seenMessages.current.has(msg.message_id)) {
+                  if (!selectedClientRef.current || selectedClientRef.current.client_id !== msg.client_id) {
+                    updatedNewMessages[msg.client_id] = true;
+                  }
+                  seenMessages.current.add(msg.message_id);
+                  receivedNewMessage = true;
+                  latestMessageId = msg.message_id;
+                }
+              }
+
+              if (selectedClientRef.current?.client_id === msg.client_id) {
+                updatedNewMessages[msg.client_id] = false;
+                setMessages((prevMessages) => {
+                  if (!prevMessages.some((m) => m.message_id === msg.message_id)) {
+                    return [...prevMessages, msg];
+                  }
+                  return prevMessages;
+                });
+              }
+            }
+          });
+
+          return updatedNewMessages;
         });
 
-        setNewMessages(newMessagesStatus);
+        if (receivedNewMessage && latestMessageId > (lastSoundMessageId || 0) && !playedSounds.current.has(latestMessageId)) {
+          playNotificationSound();
+          playedSounds.current.add(latestMessageId);
+          setLastSoundMessageId(latestMessageId);
+          localStorage.setItem("lastSoundMessageId", latestMessageId);
+        }
+
+        if (normalizedMessages.length > 0) {
+          const lastMessageId = Math.max(...normalizedMessages.map((msg) => msg.message_id));
+          setLastCheckedMessageId(lastMessageId);
+          localStorage.setItem("lastCheckedMessageId", lastMessageId);
+        }
+
       } catch (error) {
-        console.error("Error checking new messages:", error);
+        console.error("❌ שגיאה בבדיקת הודעות חדשות:", error);
       }
     };
 
-    const interval = setInterval(checkNewMessages, 10000);
+    const interval = setInterval(checkNewMessages, 5000);
     return () => clearInterval(interval);
-  }, [clients, employeeId]);
+  }, [clients, employeeId, lastSoundMessageId]);
+
 
   const handleSendMessage = async () => {
+
     if (!selectedClient) {
       console.error("No client selected.");
       return;
@@ -202,12 +268,14 @@ const Messages = () => {
           direction: "out",
           content: newMessage.trim(),
           status: "sent",
-          parent_message_id: replyToMessageId ? replyToMessageId: null
-                };
+          parent_message_id: replyToMessageId ? replyToMessageId : null
+        };
 
         const response = await sendMessage(messageData);
         setMessages([...messages, response]);
         setNewMessage("");
+        setMessageContent(""); // מצרף את תוכן ההודעה הקודמת לשדה ההודעה
+        setMessageSender("")
       }
 
       if (selectedFile) {
@@ -219,9 +287,10 @@ const Messages = () => {
         formData.append("file", selectedFile);
 
         const response = await sendFileMessage(formData);
-        setMessages([...messages, response]);
+        const updatedMessages = await getMessagesByEmployeeAndClient(employeeId, selectedClient.client_id);
+        setMessages(updatedMessages);
         setSelectedFile(null);
-        setFilePreview(null);        
+        setFilePreview(null);
       }
     } catch (error) {
       console.error(
@@ -236,10 +305,10 @@ const Messages = () => {
     setReplyToMessageId(msg.message_id)
     try {
       // קריאה לשרת לקבלת פרטי השולח
-      const senderName = await fetchSenderName(senderId , senderType);
-      
+      const senderName = await fetchSenderName(senderId, senderType);
+
       const sender_name = `${senderName}: `;  // ציטוט ההודעה הקודמת עם שם השולח
-      const msg_content=`${msg.content}\n\n`
+      const msg_content = `${msg.content}\n\n`
       setMessageContent(msg_content); // מצרף את תוכן ההודעה הקודמת לשדה ההודעה
       setMessageSender(senderName)
     } catch (error) {
@@ -260,23 +329,23 @@ const Messages = () => {
     const ext = fileName.split(".").pop().toLowerCase();
     return imageExtensions.includes(ext);
   };
-  
+
   const getFileIcon = (fileName) => {
     if (!fileName) return <FaFileAlt size={24} color="gray" />; // ברירת מחדל - אייקון קובץ כללי
     const ext = fileName.split(".").pop().toLowerCase();
-  
+
     switch (ext) {
       case "docx":
       case "doc":
-        return <AiFillFileWord size={24} width=  "40px" color="rgb(69, 129, 221)" />;
+        return <AiFillFileWord size={24} width="40px" color="rgb(69, 129, 221)" />;
       case "pdf":
         return <BsFillFilePdfFill size={24} color="red" />;
       case "xlsx":
       case "xls":
-         return <BsFillFileExcelFill size={24} color="green" />;      case "xlsx":
+        return <BsFillFileExcelFill size={24} color="green" />; case "xlsx":
       case "pptx":
         return <PiMicrosoftPowerpointLogoFill size={24} color="#D24726" />;
-        case "jpg":
+      case "jpg":
       case "jpeg":
       case "png":
       case "gif":
@@ -308,11 +377,12 @@ const Messages = () => {
                 <Badge
                   color="error"
                   variant="dot"
-                  invisible={!newMessages[client.client_id]}
+                  invisible={!newMessages[client.client_id]} // אם אין הודעה חדשה -> מוסתר
                 >
                   <Avatar>{client.name.charAt(0)}</Avatar>
                 </Badge>
               </ListItemAvatar>
+
               <ListItemText
                 primary={client.name}
                 className={newMessages[client.client_id] ? "bold-text" : ""}
@@ -341,86 +411,126 @@ const Messages = () => {
           ))}
           <div ref={messagesEndRef} />
         </Box>
-        <Box className="message-input-container" sx={{borderRadius: "24px !important" }}>
-          <IconButton component="label" sx={{height:"5vh"}}>
+        <Box className="message-input-container" sx={{ borderRadius: "24px !important" }}>
+          <IconButton component="label" sx={{ height: "5vh" }}>
             <AttachFileIcon />
             <input type="file" hidden onChange={(e) => handleFileChange(e)} />
           </IconButton>
           {filePreview && !isImageFile(selectedFile?.name) && (
-        <Box sx={{ position: "absolute", top: "4vh", right: "1.5vw", border: "1px solid #ccc", borderRadius: "24px", maxHeight: "37vh", overflow: "hidden" , zIndex: "2" , maxWidth: "22vw" }}>
-          <img src={filePreview} alt="File preview" style={{  height: "68vh"}} />
-          <Box
-      sx={{
-        width: "100%",
-        backgroundColor: "#fff",
-        borderTop: "1px solid #ccc",
-        borderBottomLeftRadius: "24px",
-        borderBottomRightRadius: "24px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "flex-end",
-        marginTop: "-38vh",
-        height: "6vh",
-        position: "relative",
-        zIndex: "2"
-      }}
-    >
-      <Typography sx={{ fontSize: "16px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" , marginTop: "1vh", display: "flex", marginRight: "1vw"}}>
-      {selectedFile?.name}
-        <Typography sx={{marginLeft: "1vw"}}> {getFileIcon(selectedFile?.name)}</Typography>
+            <Box sx={{ position: "absolute", top: "4vh", right: "1.5vw", border: "1px solid #ccc", borderRadius: "24px", maxHeight: "37vh", overflow: "hidden", zIndex: "2", maxWidth: "22vw" }}>
+              <img src={filePreview} alt="File preview" style={{ height: "68vh" }} />
+              <IconButton
+                sx={{
+                  position: "absolute",
+                  top: "1vh",
+                  left: "0.3vw",
+                  backgroundColor: "rgb(22 15 15 / 50%)",
+                  color: "#fff",
+                  padding: "0.2vh 0.9vh",
+                  "&:hover": { backgroundColor: "rgba(138, 134, 134, 0.8)" },
+                }}
+                onClick={() => {
+                  setSelectedFile(null);
+                  setFilePreview(null);
+                }}
+              >
+                ×
+              </IconButton>
+              <Box
+                sx={{
+                  width: "100%",
+                  backgroundColor: "#fff",
+                  borderTop: "1px solid #ccc",
+                  borderBottomLeftRadius: "24px",
+                  borderBottomRightRadius: "24px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "flex-end",
+                  marginTop: "-38vh",
+                  height: "6vh",
+                  position: "relative",
+                  zIndex: "2"
+                }}
+              >
+                <Typography sx={{ fontSize: "16px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: "1vh", display: "flex", marginRight: "1vw" }}>
+                  {selectedFile?.name}
+                  <Typography sx={{ marginLeft: "1vw" }}> {getFileIcon(selectedFile?.name)}</Typography>
 
-      </Typography>
-    </Box>
-        </Box>
-      )}
+                </Typography>
+              </Box>
+            </Box>
+          )}
           {filePreview && isImageFile(selectedFile?.name) && (
-  <Box
-    sx={{
-      position: "absolute",
-      top: "4vh",
-      right: "1.5vw",
-      border: "2px solid #aaa",
-      borderRadius: "16px",
-      maxWidth: "50vw", // תצוגה רחבה יותר
-      maxHeight: "70vh", // גובה גדול יותר
-      overflow: "hidden",
-      zIndex: "2",
-    }}
-  >
-    <img
-      src={filePreview}
-      alt="Image preview"
-      style={{
-        width: "100%",
-        height: "auto", // שומר על הפרופורציות
-        objectFit: "contain", // התאמת התמונה לתיבה
-      }}
-    />
-         <Box
-      sx={{
-        width: "100%",
-        backgroundColor: "#fff",
-        borderTop: "1px solid #ccc",
-        borderBottomLeftRadius: "24px",
-        borderBottomRightRadius: "24px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "flex-end",
-        marginTop: "-1vh",
-        height: "6vh",
-        position: "relative",
-        zIndex: "2"
-      }}
-    >
-      <Typography sx={{ fontSize: "16px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" , marginTop: "1vh", display: "flex", marginRight: "1vw"}}>
-      {selectedFile?.name}
-        <Typography sx={{marginLeft: "1vw"}}> {getFileIcon(selectedFile?.name)}</Typography>
+            <Box
+              sx={{
+                position: "absolute",
+                top: "4vh",
+                right: "1.5vw",
+                border: "2px solid #aaa",
+                borderRadius: "16px",
+                maxWidth: "50vw", // תצוגה רחבה יותר
+                maxHeight: "70vh", // גובה גדול יותר
+                overflow: "hidden",
+                zIndex: "2",
+                width: "fit-content",
+                height: "fit-content"
 
-      </Typography>
-    </Box>
+              }}
+            >
+              <img
+                src={filePreview}
+                alt="Image preview"
+                style={{
+                  width: "100%",
+                  height: "auto", // שומר על הפרופורציות
+                  //  objectFit: "contain", // התאמת התמונה לתיבה
+                  maxHeight: "32vh"
 
-  </Box>
-)}
+                }}
+              />
+              <IconButton
+                sx={{
+                  position: "absolute",
+                  top: "1vh",
+                  left: "0.3vw",
+                  backgroundColor: "rgb(22 15 15 / 50%)",
+                  color: "#fff",
+                  padding: "0.2vh 0.9vh",
+                  "&:hover": { backgroundColor: "rgba(138, 134, 134, 0.8)" },
+                }}
+                onClick={() => {
+                  setSelectedFile(null);
+                  setFilePreview(null);
+                }}
+              >
+                ×
+              </IconButton>
+              <Box
+                sx={{
+                  maxWidth: "21vw",
+                  overflow: "hidden",
+                  backgroundColor: "#fff",
+                  borderTop: "1px solid #ccc",
+                  borderBottomLeftRadius: "24px",
+                  borderBottomRightRadius: "24px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "flex-end",
+                  marginTop: "-1vh",
+                  height: "6vh",
+                  position: "relative",
+                  zIndex: "2"
+                }}
+              >
+                <Typography sx={{ fontSize: "16px", fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: "1vh", display: "flex", marginRight: "1vw" }}>
+                  {selectedFile?.name}
+                  <Typography sx={{ marginLeft: "1vw" }}> {getFileIcon(selectedFile?.name)}</Typography>
+
+                </Typography>
+              </Box>
+
+            </Box>
+          )}
           {messageContent ? (
 
             <TextField
@@ -433,11 +543,11 @@ const Messages = () => {
                 overflowY: "auto",
                 direction: "rtl",
                 borderRadius: "24px !important",
-                paddingTop:"1vh",
-                
+                paddingTop: "1vh",
+
                 "& .MuiInputBase-root .MuiInputBase-input": {
                   marginTop: "2vh",  // מרווח תחתון לתוכן (ה-placeholder)
-                  
+
                 },
               }}
               value={newMessage}  // הצגת הציטוט והתגובה המשותפת
@@ -448,38 +558,42 @@ const Messages = () => {
               placeholder="Type your message..."  // הודעה חדשה
               InputProps={{
                 startAdornment: (
-                  
-                  <Box sx={{minWidth: "16px !important", width: "16px !important",height: "7vh", borderTopRightRadius: "16px !important"
-                    ,borderRight: "3px solid #2d6a9c !important", borderTop: "3px solid #2d6a9c !important"}}>
-                  <InputAdornment position="start" sx={{ lineHeight: "1", marginTop: "2vh" , marginRight:"1.5vw"}}>
-                    <Typography sx={{fontFamily: "Roboto, Helvetica, Arial, sans-serif", fontSize:"14px", maxHeight:"6vh", overflow: "initial",overflowY: "clip"}}>
-                 
-                      <strong>{messageSender}</strong>
-                      <Typography sx={{fontFamily: "Roboto, Helvetica, Arial, sans-serif", marginBottom: "1vh" ,wordWrap: "break-word",
-                  whiteSpace: "normal",width:"46vw"}} >
-                    <strong>{messageContent}</strong>
-                    </Typography> 
-                    </Typography>
-                    <IconButton
-            sx={{
-              position: "absolute",
-              top: "-0.5vh",
-              left: "0.3vw",
-              fontSize: "3vh",
-            }}
-            onClick={() => {
-              setMessageContent(""); // מנקה את תוכן ההודעה המקורית
-              setMessageSender("");  // מנקה את שם השולח
-              setReplyToMessageId(null);  // מבטל את השב
-            }}
-          >
-            × {/* כפתור סגירה */}
-          </IconButton>
-                  </InputAdornment>
+
+                  <Box sx={{
+                    minWidth: "16px !important", width: "16px !important", height: "7vh", borderTopRightRadius: "16px !important"
+                    , borderRight: "3px solid #2d6a9c !important", borderTop: "3px solid #2d6a9c !important"
+                  }}>
+                    <InputAdornment position="start" sx={{ lineHeight: "1", marginTop: "2vh", marginRight: "1.5vw" }}>
+                      <Typography sx={{ fontFamily: "Roboto, Helvetica, Arial, sans-serif", fontSize: "14px", maxHeight: "6vh", overflow: "initial", overflowY: "clip" }}>
+
+                        <strong>{messageSender}</strong>
+                        <Typography sx={{
+                          fontFamily: "Roboto, Helvetica, Arial, sans-serif", marginBottom: "1vh", wordWrap: "break-word",
+                          whiteSpace: "normal", width: "46vw"
+                        }} >
+                          <strong>{messageContent}</strong>
+                        </Typography>
+                      </Typography>
+                      <IconButton
+                        sx={{
+                          position: "absolute",
+                          top: "-0.5vh",
+                          left: "0.3vw",
+                          fontSize: "3vh",
+                        }}
+                        onClick={() => {
+                          setMessageContent(""); // מנקה את תוכן ההודעה המקורית
+                          setMessageSender("");  // מנקה את שם השולח
+                          setReplyToMessageId(null);  // מבטל את השב
+                        }}
+                      >
+                        × {/* כפתור סגירה */}
+                      </IconButton>
+                    </InputAdornment>
                   </Box>
-                  
+
                 ),
-                
+
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -492,52 +606,53 @@ const Messages = () => {
             />
 
           ) : (
-            
-              <TextField
 
-                sx={{
-                  borderRightWidth: "0px",
-                  maxWidth: "50vw",
-                  wordWrap: "break-word",
-                  whiteSpace: "normal",
-                  overflowY: "auto",
-                  direction: "rtl",
-                  borderRadius: "5vh",
-                  "& .css-w4nesw-MuiInputBase-input-MuiOutlinedInput-input":{
-                    marginTop: selectedFile ? "39vh" : "auto",
-                  
-                  },
-                  "& .MuiInputBase-root.MuiOutlinedInput-root": {  // שינוי הסטייל של רכיב ה-OutlinedInput
-                    minHeight: selectedFile ? "45vh": "auto"},
-                }}
-                value={newMessage}  // הצגת הציטוט והתגובה המשותפת
-                onChange={(e) => setNewMessage(e.target.value)}  // עדכון רק בתגובה
-                fullWidth
-                multiline
-                maxRows={4}
-                placeholder="Type your message..."  // הודעה חדשה
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    if (!e.shiftKey) {  // אם לא לחוצים Shift
-                      handleSendMessage();  // שליחה של ההודעה
-                      e.preventDefault();  // מונע ירידה לשורה חדשה
-                    }
+            <TextField
+
+              sx={{
+                borderRightWidth: "0px",
+                maxWidth: "50vw",
+                wordWrap: "break-word",
+                whiteSpace: "normal",
+                overflowY: "auto",
+                direction: "rtl",
+                borderRadius: "5vh",
+                "& .css-w4nesw-MuiInputBase-input-MuiOutlinedInput-input": {
+                  marginTop: selectedFile ? "39vh" : "auto",
+
+                },
+                "& .MuiInputBase-root.MuiOutlinedInput-root": {  // שינוי הסטייל של רכיב ה-OutlinedInput
+                  minHeight: selectedFile ? "45vh" : "auto"
+                },
+              }}
+              value={newMessage}  // הצגת הציטוט והתגובה המשותפת
+              onChange={(e) => setNewMessage(e.target.value)}  // עדכון רק בתגובה
+              fullWidth
+              multiline
+              maxRows={4}
+              placeholder="Type your message..."  // הודעה חדשה
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  if (!e.shiftKey) {  // אם לא לחוצים Shift
+                    handleSendMessage();  // שליחה של ההודעה
+                    e.preventDefault();  // מונע ירידה לשורה חדשה
                   }
-                }}
-              />
-       
-
-        )}
+                }
+              }}
+            />
 
 
+          )}
 
-            </Box>
+
+
         </Box>
-      </Box >
-      );
+      </Box>
+    </Box >
+  );
 };
 
-      export default Messages;
+export default Messages;
 
 
 
@@ -592,5 +707,4 @@ const Messages = () => {
 
 
 
-      
-      
+
